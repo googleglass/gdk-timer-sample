@@ -17,6 +17,7 @@
 package com.google.android.glass.sample.timer;
 
 import com.google.android.glass.timeline.LiveCard;
+import com.google.android.glass.timeline.LiveCard.PublishMode;
 import com.google.android.glass.timeline.TimelineManager;
 
 import android.app.PendingIntent;
@@ -32,7 +33,7 @@ import android.util.Log;
  */
 public class TimerService extends Service {
 
-    private static final String LIVE_CARD_ID = "timer";
+    private static final String LIVE_CARD_TAG = "timer";
 
     /**
      * Binder giving access to the underlying {@code Timer}.
@@ -65,15 +66,15 @@ public class TimerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (mLiveCard == null) {
-            mLiveCard = mTimelineManager.getLiveCard(LIVE_CARD_ID);
+            mLiveCard = mTimelineManager.createLiveCard(LIVE_CARD_TAG);
 
-            mLiveCard.enableDirectRendering(true).getSurfaceHolder().addCallback(mTimerDrawer);
-            mLiveCard.setNonSilent(true);
+            mLiveCard.setDirectRenderingEnabled(true).getSurfaceHolder().addCallback(mTimerDrawer);
 
             Intent menuIntent = new Intent(this, MenuActivity.class);
+            menuIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             mLiveCard.setAction(PendingIntent.getActivity(this, 0, menuIntent, 0));
 
-            mLiveCard.publish();
+            mLiveCard.publish(PublishMode.REVEAL);
         } else {
             // TODO(alainv): Jump to the LiveCard when API is available.
         }
