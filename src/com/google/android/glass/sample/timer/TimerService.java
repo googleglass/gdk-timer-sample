@@ -18,7 +18,6 @@ package com.google.android.glass.sample.timer;
 
 import com.google.android.glass.timeline.LiveCard;
 import com.google.android.glass.timeline.LiveCard.PublishMode;
-import com.google.android.glass.timeline.TimelineManager;
 
 import android.app.PendingIntent;
 import android.app.Service;
@@ -38,45 +37,47 @@ public class TimerService extends Service {
     /**
      * Binder giving access to the underlying {@code Timer}.
      */
-    public class TimerBinder extends Binder {
+    public static class TimerBinder extends Binder {
+        private Timer mTimer;
+
+        public TimerBinder(Timer timer) {
+            mTimer = timer;
+        }
+
         public Timer getTimer() {
-            return mTimerDrawer.getTimer();
+            return mTimer;
         }
     }
 
-    private final TimerBinder mBinder = new TimerBinder();
-
     private TimerDrawer mTimerDrawer;
 
-    private TimelineManager mTimelineManager;
     private LiveCard mLiveCard;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        mTimelineManager = TimelineManager.from(this);
         mTimerDrawer = new TimerDrawer(this);
     }
 
     @Override
     public IBinder onBind(Intent intent) {
-        return mBinder;
+        return new TimerBinder(mTimerDrawer.getTimer());
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (mLiveCard == null) {
-            mLiveCard = mTimelineManager.createLiveCard(LIVE_CARD_TAG);
+            mLiveCard = new LiveCard(this, LIVE_CARD_TAG);
 
             mLiveCard.setDirectRenderingEnabled(true).getSurfaceHolder().addCallback(mTimerDrawer);
 
             Intent menuIntent = new Intent(this, MenuActivity.class);
             menuIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             mLiveCard.setAction(PendingIntent.getActivity(this, 0, menuIntent, 0));
-
+            mLiveCard.attach(this);
             mLiveCard.publish(PublishMode.REVEAL);
         } else {
-            // TODO(alainv): Jump to the LiveCard when API is available.
+            mLiveCard.navigate();
         }
 
         return START_STICKY;
@@ -85,7 +86,6 @@ public class TimerService extends Service {
     @Override
     public void onDestroy() {
         if (mLiveCard != null && mLiveCard.isPublished()) {
-            mLiveCard.getSurfaceHolder().removeCallback(mTimerDrawer);
             mLiveCard.unpublish();
             mLiveCard = null;
             mTimerDrawer.getTimer().reset();

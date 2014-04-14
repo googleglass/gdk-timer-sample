@@ -22,20 +22,26 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Handler;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+
+import java.lang.Runnable;
 
 /**
  * Activity showing the options menu.
  */
 public class MenuActivity extends Activity {
 
-    /** Request code for setting the timer. */
-    private static final int SET_TIMER = 100;
+    /** Request code for setting the timer, visible for testing. */
+    static final int SET_TIMER = 100;
+
+    private final Handler mHandler = new Handler();
 
     private Timer mTimer;
-    private boolean mResumed;
+    private boolean mAttachedToWindow;
+    private boolean mOptionsMenuOpen;
     private boolean mSettingTimer;
 
     private ServiceConnection mConnection = new ServiceConnection() {
@@ -62,21 +68,22 @@ public class MenuActivity extends Activity {
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        mResumed = true;
+    public void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mAttachedToWindow = true;
         openOptionsMenu();
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-        mResumed = false;
+    public void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        mAttachedToWindow = false;
     }
 
     @Override
     public void openOptionsMenu() {
-        if (mResumed && mTimer != null) {
+        if (!mOptionsMenuOpen && mAttachedToWindow && mTimer != null) {
+            mOptionsMenuOpen = true;
             super.openOptionsMenu();
         }
     }
@@ -92,14 +99,17 @@ public class MenuActivity extends Activity {
     public boolean onPrepareOptionsMenu(Menu menu) {
         final boolean timeSet = mTimer.getDurationMillis() != 0;
 
-        menu.setGroupVisible(R.id.no_time_set, !timeSet);
-        menu.setGroupVisible(R.id.time_set, timeSet);
+        setOptionsMenuGroupState(menu, R.id.no_time_set, !timeSet);
+        setOptionsMenuGroupState(menu, R.id.time_set, timeSet);
         if (timeSet) {
-            menu.findItem(R.id.start).setVisible(!mTimer.isRunning() && !mTimer.isStarted());
-            menu.findItem(R.id.resume).setVisible(!mTimer.isRunning() && mTimer.isStarted());
-            menu.findItem(R.id.pause).setVisible(
+            setOptionsMenuState(
+                    menu.findItem(R.id.start), !mTimer.isRunning() && !mTimer.isStarted());
+            setOptionsMenuState(
+                    menu.findItem(R.id.resume), !mTimer.isRunning() && mTimer.isStarted());
+            setOptionsMenuState(
+                    menu.findItem(R.id.pause),
                     mTimer.isRunning() && mTimer.getRemainingTimeMillis() > 0);
-            menu.findItem(R.id.reset).setVisible(mTimer.isStarted());
+            setOptionsMenuState(menu.findItem(R.id.reset), mTimer.isStarted());
         }
         return true;
     }
@@ -108,11 +118,6 @@ public class MenuActivity extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         // Handle item selection.
         switch (item.getItemId()) {
-            case R.id.change_timer:
-            case R.id.set_timer:
-                mTimer.reset();
-                setTimer();
-                return true;
             case R.id.start:
             case R.id.resume:
                 mTimer.start();
@@ -123,8 +128,37 @@ public class MenuActivity extends Activity {
             case R.id.reset:
                 mTimer.reset();
                 return true;
+            case R.id.change_timer:
+            case R.id.set_timer:
+                // Start the new Activity at the end of the message queue for proper options menu
+                // animation. This is only needed when starting a new Activity or stopping a Service
+                // that published a LiveCard.
+                post(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        Intent setTimerIntent =
+                                new Intent(MenuActivity.this, SetTimerActivity.class);
+
+                        setTimerIntent.putExtra(
+                                SetTimerActivity.EXTRA_DURATION_MILLIS, mTimer.getDurationMillis());
+                        startActivityForResult(setTimerIntent, SET_TIMER);
+                    }
+                });
+                mTimer.reset();
+                mSettingTimer = true;
+                return true;
             case R.id.stop:
-                stopService(new Intent(this, TimerService.class));
+                // Stop the service at the end of the message queue for proper options menu
+                // animation. This is only needed when starting a new Activity or stopping a Service
+                // that published a LiveCard.
+                post(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        stopService(new Intent(MenuActivity.this, TimerService.class));
+                    }
+                });
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -133,6 +167,7 @@ public class MenuActivity extends Activity {
 
     @Override
     public void onOptionsMenuClosed(Menu menu) {
+        mOptionsMenuOpen = false;
         if (!mSettingTimer) {
             // Nothing else to do, closing the Activity.
             finish();
@@ -147,11 +182,26 @@ public class MenuActivity extends Activity {
         finish();
     }
 
-    private void setTimer() {
-        Intent setTimerIntent = new Intent(this, SetTimerActivity.class);
+    /**
+     * Posts a {@link Runnable} at the end of the message loop, overridable for testing.
+     */
+    protected void post(Runnable runnable) {
+        mHandler.post(runnable);
+    }
 
-        setTimerIntent.putExtra(SetTimerActivity.EXTRA_DURATION_MILLIS, mTimer.getDurationMillis());
-        startActivityForResult(setTimerIntent, SET_TIMER);
-        mSettingTimer = true;
+    /**
+     * Sets a {@code MenuItem} visible and enabled state.
+     */
+    private static void setOptionsMenuState(MenuItem menuItem, boolean enabled) {
+        menuItem.setVisible(enabled);
+        menuItem.setEnabled(enabled);
+    }
+
+    /**
+     * Sets all menu items visible and enabled state that are in the given group.
+     */
+    private static void setOptionsMenuGroupState(Menu menu, int groupId, boolean enabled) {
+        menu.setGroupVisible(groupId, enabled);
+        menu.setGroupEnabled(groupId, enabled);
     }
 }

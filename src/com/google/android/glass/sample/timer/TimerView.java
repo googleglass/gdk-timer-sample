@@ -42,9 +42,10 @@ public class TimerView extends FrameLayout {
         public void onChange();
     }
 
-    private static final long DELAY_MILLIS = 1000;
     private static final int SOUND_PRIORITY = 1;
     private static final int MAX_STREAMS = 1;
+    // Visible for testing.
+    static final long DELAY_MILLIS = 1000;
 
     private final SoundPool mSoundPool;
     private final int mTimerFinishedSoundId;
@@ -59,10 +60,11 @@ public class TimerView extends FrameLayout {
 
     private final Handler mHandler = new Handler();
     private final Runnable mUpdateTextRunnable = new Runnable() {
+
         @Override
         public void run() {
             if (mRunning) {
-                mHandler.postDelayed(mUpdateTextRunnable, DELAY_MILLIS);
+                postDelayed(mUpdateTextRunnable, DELAY_MILLIS);
                 updateText();
             }
         }
@@ -70,6 +72,7 @@ public class TimerView extends FrameLayout {
 
     private final Timer mTimer;
     private final Timer.TimerListener mTimerListener = new Timer.TimerListener() {
+
         @Override
         public void onStart() {
             mRunning = true;
@@ -77,13 +80,13 @@ public class TimerView extends FrameLayout {
             if (delayMillis == 0) {
                 delayMillis = DELAY_MILLIS;
             }
-            mHandler.postDelayed(mUpdateTextRunnable, delayMillis);
+            postDelayed(mUpdateTextRunnable, delayMillis);
         }
 
         @Override
         public void onPause() {
             mRunning = false;
-            mHandler.removeCallbacks(mUpdateTextRunnable);
+            removeCallbacks(mUpdateTextRunnable);
         }
 
         @Override
@@ -108,6 +111,10 @@ public class TimerView extends FrameLayout {
     }
 
     public TimerView(Context context, AttributeSet attrs, int style) {
+        this(context, attrs, style, new Timer());
+    }
+
+    public TimerView(Context context, AttributeSet attrs, int style, Timer timer) {
         super(context, attrs, style);
 
         mSoundPool = new SoundPool(MAX_STREAMS, AudioManager.STREAM_MUSIC, 0);
@@ -125,26 +132,45 @@ public class TimerView extends FrameLayout {
         mWhiteColor = context.getResources().getColor(R.color.white);
         mRedColor = context.getResources().getColor(R.color.red);
 
-        mTimer = new Timer();
+        mTimer = timer;
         mTimer.setListener(mTimerListener);
-        mTimer.setDurationMillis(0);
+        updateText(mTimer.getRemainingTimeMillis(), mWhiteColor);
     }
 
+    /** Returns the {@link Timer} model backing up the view. */
     public Timer getTimer() {
         return mTimer;
     }
 
     /**
-     * Set a {@link ChangeListener}.
+     * Sets a {@link ChangeListener}.
      */
     public void setListener(ChangeListener listener) {
         mChangeListener = listener;
     }
 
     /**
-     * Updates the text from the Timer's value.
+     * Returns the set {@link ChangeListener}.
      */
-    private void updateText() {
+    public ChangeListener getListener() {
+        return mChangeListener;
+    }
+
+    @Override
+    public boolean postDelayed(Runnable action, long delayMillis) {
+        return mHandler.postDelayed(action, delayMillis);
+    }
+
+    @Override
+    public boolean removeCallbacks(Runnable action) {
+        mHandler.removeCallbacks(action);
+        return true;
+    }
+
+    /**
+     * Updates the text from the Timer's value, overridable for testing.
+     */
+    protected void updateText() {
         long remainingTimeMillis = mTimer.getRemainingTimeMillis();
 
         if (remainingTimeMillis > 0) {
@@ -168,9 +194,9 @@ public class TimerView extends FrameLayout {
     }
 
     /**
-     * Updates the displayed text with the provided values.
+     * Updates the displayed text with the provided values, overridable for testing.
      */
-    private void updateText(long timeMillis, int textColor) {
+    protected void updateText(long timeMillis, int textColor) {
         mHoursView.setText(String.format("%02d", TimeUnit.MILLISECONDS.toHours(timeMillis)));
         mHoursView.setTextColor(textColor);
         timeMillis %= TimeUnit.HOURS.toMillis(1);
@@ -185,10 +211,10 @@ public class TimerView extends FrameLayout {
     }
 
     /**
-     * Plays the "timer finishd" sound once.
+     * Plays the "timer finishd" sound once, overridable for testing.
      */
-    private void playSound() {
-         mSoundPool.play(mTimerFinishedSoundId,
+    protected void playSound() {
+        mSoundPool.play(mTimerFinishedSoundId,
                         1 /* leftVolume */,
                         1 /* rightVolume */,
                         SOUND_PRIORITY,

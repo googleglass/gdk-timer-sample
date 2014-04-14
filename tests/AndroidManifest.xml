@@ -14,4 +14,15 @@
      limitations under the License.
 -->
 
-<trigger command="START_A_TIMER" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.google.android.glass.sample.timer.tests">
+
+    <application>
+        <uses-library android:name="android.test.runner" />
+    </application>
+
+    <instrumentation android:name="android.test.InstrumentationTestRunner"
+        android:targetPackage="com.google.android.glass.sample.timer"
+        android:label="Test for Timer Glassware." />
+
+</manifest>

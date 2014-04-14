@@ -16,22 +16,23 @@
 
 package com.google.android.glass.sample.timer;
 
+import com.google.android.glass.timeline.DirectRenderingCallback;
+
 import android.content.Context;
 import android.graphics.Canvas;
-import android.util.Log;
-import android.view.LayoutInflater;
 import android.view.SurfaceHolder;
 import android.view.View;
 
 /**
  * SurfaceHolder.Callback used to draw the timer on the timeline {@link LiveCard}.
  */
-public class TimerDrawer implements SurfaceHolder.Callback {
+public class TimerDrawer implements DirectRenderingCallback {
 
     private SurfaceHolder mHolder;
-    private TimerView mView;
+    private boolean mRenderingPaused;
 
-    private TimerView.ChangeListener mListener = new TimerView.ChangeListener() {
+    private final TimerView mView;
+    private final TimerView.ChangeListener mListener = new TimerView.ChangeListener() {
         @Override
         public void onChange() {
             if (mHolder != null) {
@@ -42,6 +43,11 @@ public class TimerDrawer implements SurfaceHolder.Callback {
 
     public TimerDrawer(Context context) {
         mView = new TimerView(context);
+        mView.setListener(mListener);
+    }
+
+    public TimerDrawer(TimerView view) {
+        mView = view;
         mView.setListener(mListener);
     }
 
@@ -62,6 +68,8 @@ public class TimerDrawer implements SurfaceHolder.Callback {
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
+        // The creation of a new Surface implicitly resumes the rendering.
+        mRenderingPaused = false;
         mHolder = holder;
         draw();
     }
@@ -71,16 +79,24 @@ public class TimerDrawer implements SurfaceHolder.Callback {
         mHolder = null;
     }
 
+    @Override
+    public void renderingPaused(SurfaceHolder holder, boolean paused) {
+        mRenderingPaused = paused;
+        draw();
+    }
+
     public void draw() {
-        Canvas canvas;
-        try {
-            canvas = mHolder.lockCanvas();
-        } catch (Exception e) {
-            return;
-        }
-        if (canvas != null) {
-            mView.draw(canvas);
-            mHolder.unlockCanvasAndPost(canvas);
+        if (!mRenderingPaused && mHolder != null) {
+            Canvas canvas;
+            try {
+                canvas = mHolder.lockCanvas();
+            } catch (Exception e) {
+                return;
+            }
+            if (canvas != null) {
+                mView.draw(canvas);
+                mHolder.unlockCanvasAndPost(canvas);
+            }
         }
     }
 }

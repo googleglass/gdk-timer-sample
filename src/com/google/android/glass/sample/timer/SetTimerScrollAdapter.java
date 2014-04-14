@@ -88,6 +88,8 @@ public class SetTimerScrollAdapter extends CardScrollAdapter {
         durationMillis %= TimeUnit.MINUTES.toMillis(1);
         mValues[TimeComponents.SECONDS.getPosition()] =
                 TimeUnit.MILLISECONDS.toSeconds(durationMillis);
+
+        notifyDataSetChanged();
     }
 
     /**
@@ -104,6 +106,8 @@ public class SetTimerScrollAdapter extends CardScrollAdapter {
      */
     public void setTimeComponent(TimeComponents component, int value) {
         mValues[component.getPosition()] = value;
+
+        notifyDataSetChanged();
     }
 
     /**
@@ -148,20 +152,15 @@ public class SetTimerScrollAdapter extends CardScrollAdapter {
         }
         views[position].setTextColor(mContext.getResources().getColor(R.color.white));
 
-        return setItemOnCard(this, convertView);
+        return convertView;
     }
 
     @Override
-    public int findIdPosition(Object id) {
-        if (id instanceof TimeComponents) {
-            TimeComponents component = (TimeComponents) id;
+    public int getPosition(Object item) {
+        if (item instanceof TimeComponents) {
+            TimeComponents component = (TimeComponents) item;
             return component.getPosition();
         }
         return AdapterView.INVALID_POSITION;
-    }
-
-    @Override
-    public int findItemPosition(Object item) {
-        return findIdPosition(item);
     }
 }

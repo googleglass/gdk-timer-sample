@@ -89,7 +89,7 @@ public class Timer {
         if (mPauseTimeMillis != 0) {
             remainingTime -= mPauseTimeMillis - mStartTimeMillis;
         } else if (mStartTimeMillis != 0) {
-            remainingTime -= SystemClock.elapsedRealtime() - mStartTimeMillis;
+            remainingTime -= getElapsedRealtime() - mStartTimeMillis;
         }
 
         return remainingTime;
@@ -101,7 +101,7 @@ public class Timer {
     public void start() {
         long elapsedTime = mPauseTimeMillis - mStartTimeMillis;
 
-        mStartTimeMillis = SystemClock.elapsedRealtime() - elapsedTime;
+        mStartTimeMillis = getElapsedRealtime() - elapsedTime;
         mPauseTimeMillis = 0;
         if (mListener != null) {
             mListener.onStart();
@@ -113,7 +113,7 @@ public class Timer {
      */
     public void pause() {
         if (isStarted()) {
-            mPauseTimeMillis = SystemClock.elapsedRealtime();
+            mPauseTimeMillis = getElapsedRealtime();
             if (mListener != null) {
                 mListener.onPause();
             }
@@ -137,5 +137,12 @@ public class Timer {
      */
     public void setListener(TimerListener listener) {
         mListener = listener;
+    }
+
+    /**
+     * Returns {@link SystemClock.elapsedRealtime()}, overridable for testing.
+     */
+    protected long getElapsedRealtime() {
+        return SystemClock.elapsedRealtime();
     }
 }
